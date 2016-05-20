@@ -17,6 +17,7 @@ The preprocessing does the following:
 import numpy as np
 import re
 import itertools
+import sys
 from collections import Counter
 
 
@@ -41,15 +42,15 @@ def clean_str(string):
     return string.strip().lower()
 
 
-def load_data_and_labels():
+def load_MR_data_and_labels():
     """
     Loads MR polarity data from files, splits the data into words and generates labels.
     Returns split sentences and labels.
     """
     # Load data from files
-    positive_examples = list(open("./data/rt-polaritydata/rt-polarity.pos", "r").readlines())
+    positive_examples = list(open("./SST-2/train/train_pos_sst", "r").readlines())
     positive_examples = [s.strip() for s in positive_examples]
-    negative_examples = list(open("./data/rt-polaritydata/rt-polarity.neg", "r").readlines())
+    negative_examples = list(open("./SST-2/train/train_neg_sst", "r").readlines())
     negative_examples = [s.strip() for s in negative_examples]
     # Split by words
     x_text = positive_examples + negative_examples
@@ -59,6 +60,45 @@ def load_data_and_labels():
     positive_labels = [[0, 1] for _ in positive_examples]
     negative_labels = [[1, 0] for _ in negative_examples]
     y = np.concatenate([positive_labels, negative_labels], 0)
+    return [x_text, y]
+
+
+def load_TREC_data_and_labels(is_train):
+    """
+    Loads TREC data from files, splits the data into words and generates labels.
+    Returns split sentences and labels.
+    """
+    if is_train:
+        # Load data from files
+        examples = list(open("./TREC/shitty_train_test", "r").readlines())
+        examples = [s.strip() for s in examples]
+    else:
+        examples = list(open("./TREC/TREC_10.label", "r").readlines())
+        examples = [s.strip() for s in examples]
+        # examples = [long for long in examples if len(long.split(" ")) > 5]
+    labels = []
+    for s in examples:
+        labels.append(s[:s.find(":")])
+    examples_wo_labels = [s[s.find(" ") + 1:].strip() for s in examples]
+    # print(train_examples_wo_labels)
+    # Split by words
+    x_text = [clean_str(sent) for sent in examples_wo_labels]
+    x_text = [s.split(" ") for s in x_text]
+    # Generate labels
+    y = []
+    for label in labels:
+        if label == "DESC":
+            y.append([1, 0, 0, 0, 0, 0])
+        elif label == "ENTY":
+            y.append([0, 1, 0, 0, 0, 0])
+        elif label == "ABBR":
+            y.append([0, 0, 1, 0, 0, 0])
+        elif label == "HUM":
+            y.append([0, 0, 0, 1, 0, 0])
+        elif label == "NUM":
+            y.append([0, 0, 0, 0, 1, 0])
+        elif label == "LOC":
+            y.append([0, 0, 0, 0, 0, 1])
     return [x_text, y]
 
 
@@ -101,13 +141,13 @@ def build_input_data(sentences, labels, vocabulary):
     return [x, y]
 
 
-def load_data():
+def load_data(is_train=True):
     """
     Loads and preprocessed data for the MR dataset.
     Returns input vectors, labels, vocabulary, and inverse vocabulary.
     """
     # Load and preprocess data
-    sentences, labels = load_data_and_labels()
+    sentences, labels = load_TREC_data_and_labels(is_train)
     sentences_padded = pad_sentences(sentences)
     vocabulary, vocabulary_inv = build_vocab(sentences_padded)
     x, y = build_input_data(sentences_padded, labels, vocabulary)
@@ -121,7 +161,9 @@ def batch_iter(data, batch_size, num_epochs, shuffle=True):
     data = np.array(data)
     data_size = len(data)
     num_batches_per_epoch = int(len(data)/batch_size) + 1
+    print("num_batches_per_epoch={}".format(num_batches_per_epoch))
     for epoch in range(num_epochs):
+        print("\nEpoch number: " + str(epoch + 1) + "\n")
         # Shuffle the data at each epoch
         if shuffle:
             shuffle_indices = np.random.permutation(np.arange(data_size))

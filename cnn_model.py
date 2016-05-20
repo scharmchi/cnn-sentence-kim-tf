@@ -1,19 +1,28 @@
 import tensorflow as tf
-import numpy as np
 
 
 class SentenceCNN(object):
     """
     This is a CNN for sentence classification derived from the Kim's paper
     The architecture is like Embedding + Conv + Maxpool + Softmax
+    Note that in this model one feature is extracted from one filter.
     """
-    def __init__(self, seq_len, n_classes):
+    def __init__(self, seq_len, n_classes, vocab_size, embedding_size, filter_sizes, n_filters_per_size,
+                 lambda_l2_reg):
+        # define inputs to the graph
         self.x = tf.placeholder(tf.int32, [None, seq_len], name="X")
         self.y = tf.placeholder(tf.float32, [None, n_classes], name="y")
         self.dropout_keep_prob = tf.placeholder(tf.float32, name="dropout_keep_prob")
 
+        # call methods in the right order to construct the Neural Net
+        self._embedding_layer(vocab_size, embedding_size)
+        total_num_filters = self._conv_maxpool_layer(filter_sizes, embedding_size, n_filters_per_size, seq_len)
+        l2_loss = self._fc_output_layer(total_num_filters, n_classes)
+        self._loss(lambda_l2_reg, l2_loss)
+        self._accuracy()
+
     def _embedding_layer(self, vocab_size, embedding_size):
-        with tf.device('/cpu:0'), tf.name_scope("Embedding Layer"):
+        with tf.device('/cpu:0'), tf.name_scope("embedding_layer"):
             W = tf.Variable(tf.random_uniform([vocab_size, embedding_size], -1.0, 1.0), name="W_embed")
             self.embedded = tf.nn.embedding_lookup(W, self.x)
             # Now we have a tensor of shape [None, sequence_length, embedding_size]
@@ -47,6 +56,7 @@ class SentenceCNN(object):
         # add dropout
         with tf.name_scope("dropout"):
             self.h_drop = tf.nn.dropout(self.h_pool_flat, self.dropout_keep_prob)
+        return total_num_filters
 
     def _fc_output_layer(self, total_num_filters, n_classes):
         with tf.name_scope("output"):
@@ -59,6 +69,8 @@ class SentenceCNN(object):
             # having a softmax is not necessary cause anyway I am picking the highest score
             # softmax is just like normalizing
             self.scores = tf.nn.xw_plus_b(self.h_drop, W, b, name="scores-unnormalized")
+            self.W_fc = W
+            return l2_loss
 
     def _loss(self, lambda_l2_reg, l2_loss):
         with tf.name_scope("loss"):
