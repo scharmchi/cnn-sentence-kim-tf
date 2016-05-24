@@ -161,9 +161,9 @@ def batch_iter(data, batch_size, num_epochs, shuffle=True):
     data = np.array(data)
     data_size = len(data)
     num_batches_per_epoch = int(len(data)/batch_size) + 1
-    print("num_batches_per_epoch={}".format(num_batches_per_epoch))
+    # print("num_batches_per_epoch={}".format(num_batches_per_epoch))
     for epoch in range(num_epochs):
-        print("\nEpoch number: " + str(epoch + 1) + "\n")
+        # print("\nEpoch number: " + str(epoch + 1) + "\n")
         # Shuffle the data at each epoch
         if shuffle:
             shuffle_indices = np.random.permutation(np.arange(data_size))
